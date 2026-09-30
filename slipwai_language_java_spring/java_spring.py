@@ -11,6 +11,7 @@ from ..backing_services import backing_service_service_files
 from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
 from .java import JAVA_PORTS, rename_java_sources, verify_script
+from .java_project import SPRING
 from .java_toolchain import MAVEN as MVNW
 from .java_toolchain import maven_dev_command, maven_native_commands
 
@@ -250,7 +251,7 @@ FLAG_ROUTE = {
 # anyway, so it buys nothing either. What it *does* do is make pitest skip the entire project: "Skipping project
 # because: Test execution should be skipped (-DskipTests)", exit 0, no report. Combined with a target no gate
 # runs, that is a mutation score nobody has that looks exactly like one everybody passed.
-LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", {
+LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", SPRING | {
     protocol.SERVICE_FILES: service_files,
     protocol.NAME_SERVICE: name_service,
     protocol.REPOSITORY_FILES: repository_files,
