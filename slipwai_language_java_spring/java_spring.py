@@ -9,7 +9,7 @@ from ...services import App
 from ..backing_services import backing_service_service_files
 from ..flag_route import flag_resource
 from ..flags import flag_reader
-from .java import rename_java_sources, verify_script
+from .java import JAVA_PORTS, rename_java_sources, verify_script
 
 
 def service_files(event: bool, selection: Selection, target: str = "none") -> dict[str, str]:
@@ -59,6 +59,158 @@ def repository_files(
     return files
 
 
+# Its sibling's twin, and the `../java/` sources are the point: the event port, all three store
+# adapters, the URL parser, the migration entry point, the 400 body and the group mapping are the same
+# files here, not copies of them. They name no framework type, so there is nothing for a second copy to
+# say differently — and an event-log adapter kept in two places is one this factory could watch drift
+# without noticing. What is genuinely this backend's is what touches Spring: how the datasource learns
+# its address, what serves the probe, what answers a 404, how a validated token becomes authorities, and
+# the two tests that need an application context.
+WRITE_SIDE: dict[str, dict[str, str]] = {
+    "memory": {
+        f"{JAVA_PORTS}/events/Actor.java": "../java/actor.java",
+        f"{JAVA_PORTS}/events/AppendResult.java": "../java/append_result.java",
+        f"{JAVA_PORTS}/events/CausationId.java": "../java/causation_id.java",
+        f"{JAVA_PORTS}/events/CommittedEvent.java": "../java/committed_event.java",
+        f"{JAVA_PORTS}/events/CorrelationId.java": "../java/correlation_id.java",
+        f"{JAVA_PORTS}/events/DomainEvent.java": "../java/domain_event.java",
+        f"{JAVA_PORTS}/events/EventStore.java": "../java/event_store.java",
+        f"{JAVA_PORTS}/events/EventStoreException.java": "../java/event_store_exception.java",
+        f"{JAVA_PORTS}/events/EventVisitor.java": "../java/event_visitor.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryEventStore.java": "../java/event_store_memory.java",
+        "src/test/java/com/example/deliverystarter/eventstorecontract/EventStoreContract.java": (
+            "../java/tests/event_store_contract.java"
+        ),
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryEventStoreTest.java": "../java/tests/event_store_memory_test.java",
+    },
+    "sqlite": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstoresqlite/"
+        "SqliteEventStore.java": "../java/event_store_sqlite.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstoresqlite/"
+        "SqliteEventStoreTest.java": "../java/tests/event_store_sqlite_test.java",
+    },
+    "postgres": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorepostgres/"
+        "PostgresEventStore.java": "../java/event_store_postgres.java",
+        "src/main/java/com/example/deliverystarter/config/DatabaseUrl.java": "../java/database_url.java",
+        "src/main/java/com/example/deliverystarter/config/"
+        "DatabaseUrlEnvironmentPostProcessor.java": "database_url_environment_post_processor.java",
+        # Spring Boot's own registration file, which is how a post-processor is found before any bean
+        # exists. The filename is the interface's own, so it cannot be anything else.
+        "src/main/resources/META-INF/spring/"
+        "org.springframework.boot.env.EnvironmentPostProcessor.imports": "environment_post_processor_registration",
+        "src/main/java/com/example/deliverystarter/migrations/MigrateMain.java": "../java/migrate_main.java",
+        # Flyway's own naming convention, `V<version>__<description>.sql`, from the same shared `.sql`
+        # files every other SQL backend here reads. See the note in the sibling's block.
+        "src/main/resources/db/migration/V1__events.sql": "../sql/001_events.sql",
+        "src/main/resources/db/migration/V2__events_append_only.sql": "../sql/002_events_append_only.sql",
+        "src/test/java/com/example/deliverystarter/adapters/driven/eventstorepostgres/"
+        "PostgresEventStoreIT.java": "tests/event_store_postgres_it.java",
+        "src/test/java/com/example/deliverystarter/config/DatabaseUrlTest.java": (
+            "../java/tests/database_url_test.java"
+        ),
+    },
+    "spring-web": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/SchemaFailure.java": (
+            "../java/http_schema_failure.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/NotFoundAdvice.java": (
+            "http_not_found_advice.java"
+        ),
+        # The readiness contributor, not the endpoint: Actuator owns the route, and this is what the
+        # application contributes to it. The composition root is not here either — `ServiceApplication`
+        # in the skeleton is the whole of it, because the framework owns startup.
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/"
+        "ServiceHealthIndicator.java": "http_health_indicator.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/HttpAppTest.java": (
+            "tests/http_app_test.java"
+        ),
+    },
+    "keycloak": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "KeycloakRoles.java": "../java/oidc_keycloak.java",
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "SecurityConfig.java": "oidc_keycloak_security.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/auth/"
+        "KeycloakRolesTest.java": "../java/tests/oidc_keycloak_test.java",
+    },
+    "users-keycloak": {
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CustomerIdentity.java": "../java/users_oidc_keycloak.java",
+        "src/main/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CustomerSecurityConfig.java": "users_security.java",
+        "src/test/java/com/example/deliverystarter/adapters/driving/http/users/"
+        "CustomerIdentityTest.java": "../java/tests/users_oidc_keycloak_test.java",
+    },
+}
+
+# java-spring: the read side is the same set of files as its sibling framework's, because the
+# event store and everything derived from it are framework-agnostic by construction — the port is
+# what makes the framework's own datasource, migrations and health check a driven adapter's problem.
+READ_SIDE: dict[str, dict[str, str]] = {
+    "memory": {
+        f"{JAVA_PORTS}/events/TagsOf.java": "../java/tags_of.java",
+        f"{JAVA_PORTS}/events/TagQuery.java": "../java/tag_query.java",
+        f"{JAVA_PORTS}/events/TaggedRead.java": "../java/tagged_read.java",
+        f"{JAVA_PORTS}/events/Condition.java": "../java/condition.java",
+        f"{JAVA_PORTS}/events/ConditionalAppendResult.java": "../java/conditional_append_result.java",
+        f"{JAVA_PORTS}/readmodels/CheckpointStore.java": "../java/read_models.java",
+        f"{JAVA_PORTS}/readmodels/Projection.java": "../java/projection.java",
+        "src/main/java/com/example/deliverystarter/projections/Projections.java": "../java/projections.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/eventstorememory/"
+        "InMemoryDatabase.java": "../java/event_store_memory_database.java",
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstorememory/"
+        "InMemoryCheckpointStore.java": "../java/checkpoint_store_memory.java",
+        "src/test/java/com/example/deliverystarter/checkpointstorecontract/"
+        "CheckpointStoreContract.java": "../java/tests/checkpoint_store_contract.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstorememory/"
+        "InMemoryCheckpointStoreTest.java": "../java/tests/checkpoint_store_memory_test.java",
+        # What runs an async projection: the framework's own scheduler, ticking a catch-up pass.
+        # One per framework, because `@Scheduled` is the framework's and so is how it finds the
+        # project's `Projection` beans — and a hand-written worker loop is the thing this
+        # replaces. Beside the runner rather than under `adapters/driving/`, because it ships with
+        # the read side and everything under `adapters/driving/` goes with its transport.
+        "src/main/java/com/example/deliverystarter/adapters/driving/projections/"
+        "ScheduledProjections.java": "scheduled_projections.java",
+        # The runner has no I/O of its own, so its suite runs whatever the store is — which is why
+        # it is here under the feature every project has rather than beside an adapter.
+        "src/test/java/com/example/deliverystarter/projections/ProjectionsTest.java": (
+            "../java/tests/projections_test.java"
+        ),
+    },
+    "sqlite": {
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstoresqlite/"
+        "SqliteCheckpointStore.java": "../java/checkpoint_store_sqlite.java",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstoresqlite/"
+        "SqliteCheckpointStoreTest.java": "../java/tests/checkpoint_store_sqlite_test.java",
+    },
+    "postgres": {
+        # The unit of work, delegated to the framework that owns transactions. The port is
+        # shared with the sibling framework; `SpringTransactions` is the one class in the project that
+        # names a transaction API, which is why there is one per framework and no `ThreadLocal`
+        # anywhere. It is here rather than in the write-side table because the seam exists for
+        # the read side: an inline view and an async checkpoint both have to commit inside
+        # somebody else's transaction, and the framework is what binds a connection to one.
+        "src/main/java/com/example/deliverystarter/adapters/driven/sql/Transactions.java": (
+            "../java/transactions.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driven/sql/SpringTransactions.java": (
+            "spring_transactions.java"
+        ),
+        "src/main/java/com/example/deliverystarter/adapters/driven/checkpointstorepostgres/"
+        "PostgresCheckpointStore.java": "../java/checkpoint_store_postgres.java",
+        # Flyway orders by the version in the name, so the shared `.sql` files arrive under its
+        # convention rather than the numeric one the other backends' runners read.
+        "src/main/resources/db/migration/V3__projection_checkpoints.sql": "../sql/003_projection_checkpoints.sql",
+        "src/main/resources/db/migration/V4__event_tags.sql": "../sql/004_event_tags.sql",
+        "src/test/java/com/example/deliverystarter/adapters/driven/checkpointstorepostgres/"
+        "PostgresCheckpointStoreIT.java": "tests/checkpoint_store_postgres_it.java",
+    },
+}
+
+
 # Readiness as `java_quarkus.py` says: the path the framework serves, which is `HEALTH_PATH`. The body is
 # Actuator's, and shorter than its sibling's for a reason worth stating: MicroProfile Health always reports
 # the per-check breakdown, while Actuator hides it unless `show-details` says otherwise — and this project
@@ -69,5 +221,7 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", {
     protocol.NAME_SERVICE: name_service,
     protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
+    protocol.WRITE_SIDE_FILES: WRITE_SIDE,
+    protocol.READ_SIDE_FILES: READ_SIDE,
     protocol.HEALTH_BODY: '{"status":"UP"}',
 }),))
