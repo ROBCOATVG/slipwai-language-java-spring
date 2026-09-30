@@ -11,7 +11,7 @@ from ..backing_services import backing_service_service_files
 from ..flag_route import Resource, flag_resource
 from ..flags import flag_reader
 from .java import JAVA_PORTS, rename_java_sources, verify_script
-from .java_project import SPRING
+from .java_project import IDENTITY_OUTSTANDING, SPRING
 from .java_toolchain import MAVEN as MVNW
 from .java_toolchain import maven_dev_command, maven_native_commands
 
@@ -251,6 +251,20 @@ FLAG_ROUTE = {
 # anyway, so it buys nothing either. What it *does* do is make pitest skip the entire project: "Skipping project
 # because: Test execution should be skipped (-DskipTests)", exit 0, no report. Combined with a target no gate
 # runs, that is a mutation score nobody has that looks exactly like one everybody passed.
+# A Spring project's own `keycloak` paragraph (D34): the family's facts, told about Spring Security's resource
+# server and the `issuer-uri` that `application.properties` leaves commented out. An answer on the backend
+# replaces the family's whole table, so `users-keycloak` is carried from it unchanged.
+IDENTITY_OUTSTANDING_SPRING = IDENTITY_OUTSTANDING | {
+    "keycloak": """**The protocol flow is Spring Security's resource server**, not this project's:
+`spring-boot-starter-oauth2-resource-server` retrieves the issuer's JWKS and validates each bearer token's
+signature, `iss`, `aud` and `exp`, and none of it should ever be written here. It is configured in
+`apps/service/src/main/resources/application.properties`, where
+`spring.security.oauth2.resourceserver.jwt.issuer-uri` is deliberately left commented out — set, Spring Boot builds
+its `JwtDecoder` while starting and the service refuses to boot whenever Keycloak is not up, which is a hard
+dependency bought for nothing until a route needs a principal. What this project still owns is the
+group-to-role mapping in `KeycloakRoles`, and naming the roles it maps.""",
+}
+
 LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", SPRING | {
     protocol.SERVICE_FILES: service_files,
     protocol.NAME_SERVICE: name_service,
@@ -260,6 +274,7 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", S
     protocol.READ_SIDE_FILES: READ_SIDE,
     protocol.ENTRY_WIRING: {},
     protocol.FLAG_RESOURCE: FLAG_ROUTE,
+    protocol.IDENTITY_OUTSTANDING: IDENTITY_OUTSTANDING_SPRING,
     # The framework opens its own store, so the entry point has nothing to wire (`composition.wire_store`).
     protocol.ENTRY_STORE: None,
     protocol.HEALTH_BODY: '{"status":"UP"}',
