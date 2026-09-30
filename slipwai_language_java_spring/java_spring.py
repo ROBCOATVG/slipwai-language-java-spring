@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ... import registry as protocol
 from ...assets import LANGUAGE_ROOT, asset_tree
+from ...images import IMAGE, MAVEN
 from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
@@ -70,4 +71,12 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", {
     protocol.REPOSITORY_FILES: repository_files,
     protocol.READY_PATH: HEALTH_PATH,
     protocol.HEALTH_BODY: '{"status":"UP"}',
+    protocol.IMAGE_BUILDER: {
+        "tool": "",
+        # Spring Boot's own buildpack build, into the daemon; the builder is pinned in the pom.
+        "build": (
+            f"{MAVEN} spring-boot:build-image -Dspring-boot.build-image.imageName={IMAGE} "
+            "-Dspring-boot.build-image.imagePlatform=$(PLATFORM)"
+        ),
+    },
 }),))
