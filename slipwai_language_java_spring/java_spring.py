@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ... import registry as protocol
 from ...assets import LANGUAGE_ROOT, asset_tree
+from ...images import IMAGE, MAVEN
 from ...probes import HEALTH_PATH
 from ...selection import Selection
 from ...services import App
@@ -10,7 +11,8 @@ from ..backing_services import backing_service_service_files
 from ..flag_route import flag_resource
 from ..flags import flag_reader
 from .java import rename_java_sources, verify_script
-from .java_toolchain import MAVEN, maven_dev_command, maven_native_commands
+from .java_toolchain import MAVEN as MVNW
+from .java_toolchain import maven_dev_command, maven_native_commands
 
 
 def service_files(event: bool, selection: Selection, target: str = "none") -> dict[str, str]:
@@ -91,5 +93,19 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", {
     protocol.READY_PATH: HEALTH_PATH,
     protocol.HEALTH_BODY: '{"status":"UP"}',
     protocol.DEV_COMMAND: maven_dev_command("spring-boot:run"),
-    protocol.NATIVE_COMMANDS: maven_native_commands(f"{MAVEN} test-compile org.pitest:pitest-maven:mutationCoverage"),
+    protocol.NATIVE_COMMANDS: maven_native_commands(f"{MVNW} test-compile org.pitest:pitest-maven:mutationCoverage"),
+    protocol.IMAGE_BUILDER: {
+        "tool": "",
+        # Spring Boot's own buildpack build, into the daemon; the builder is pinned in the pom.
+        "build": (
+            f"{MAVEN} spring-boot:build-image -Dspring-boot.build-image.imageName={IMAGE} "
+            "-Dspring-boot.build-image.imagePlatform=$(PLATFORM)"
+        ),
+    },
+    # Flyway migrates as the service starts, switched on in production only.
+    protocol.MIGRATIONS_IN_PRODUCTION: {"environment": {"SPRING_FLYWAY_ENABLED": "true"}},
+    # Nothing, deliberately: pgjdbc does not read `PGSSLMODE`, and that was checked, so `None` is written out.
+    # Per managed-database kind; `images.py`, above `POSTGRES_SSLMODE_KINDS`, says how each was measured.
+    protocol.POSTGRES_SSLMODE: {"rds": None, "flexible-server": None},
+    protocol.SERVICE_DESCRIPTORS: {},
 }),))
