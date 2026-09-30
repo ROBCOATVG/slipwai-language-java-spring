@@ -79,4 +79,6 @@ LANGUAGE = protocol.Language(backends=(protocol.Backend("java-spring", "java", {
             "-Dspring-boot.build-image.imagePlatform=$(PLATFORM)"
         ),
     },
+    # Flyway migrates as the service starts, switched on in production only.
+    protocol.MIGRATIONS_IN_PRODUCTION: {"environment": {"SPRING_FLYWAY_ENABLED": "true"}},
 }),))
