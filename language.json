@@ -1,0 +1,21 @@
+{
+  "name": "java-spring",
+  "core": ">=9.0,<10",
+  "order": 40,
+  "family": "java",
+  "requires": {"java": ">=1.0,<2"},
+  "backends": {
+    "java-spring": {
+      "framework": "spring-boot",
+      "label": "Java — Spring Boot owns startup (HikariCP, Flyway, Actuator, Spring Security); Maven, Checkstyle/PMD/SpotBugs, JUnit 5",
+      "targets": ["none", "existing", "aws", "azure"],
+      "options": {
+        "event-store": ["memory", "sqlite", "postgres"],
+        "http": ["none", "spring-web"],
+        "auth": ["none", "keycloak", "cognito", "entra", "auth0"],
+        "users": ["none", "keycloak", "cognito", "auth0"]
+      },
+      "defaults": {"http": "spring-web"}
+    }
+  }
+}
