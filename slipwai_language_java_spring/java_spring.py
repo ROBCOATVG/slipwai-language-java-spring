@@ -1,18 +1,31 @@
-"""The Java/Spring Boot backend: `apps/service`, its Maven build, and this project's own package name."""
+"""The Java/Spring Boot backend: `apps/service`, its Maven build, and this project's own package name.
+
+This is the `java-spring` language package, a framework of the `java` family: it requires `java` in
+`language.json`, imports what the family shares from `slipwai_language_java`, and reads its own `assets/` first and
+the family's after them."""
 from __future__ import annotations
 
-from ... import registry as protocol
-from ...assets import LANGUAGE_ROOT, asset_tree
-from ...images import IMAGE, MAVEN
-from ...probes import HEALTH_PATH
-from ...selection import Selection
-from ..backing_services import backing_service_service_files
-from ..flag_route import Resource, flag_resource
-from ..flags import flag_reader
-from .java import JAVA_PORTS
-from .java_project import IDENTITY_OUTSTANDING, SPRING
-from .java_toolchain import MAVEN as MVNW
-from .java_toolchain import maven_dev_command, maven_native_commands
+from pathlib import Path
+
+from slipwai_language_java.java import ASSETS as JAVA_ASSETS
+from slipwai_language_java.java import JAVA_PORTS
+from slipwai_language_java.java_project import IDENTITY_OUTSTANDING
+from slipwai_language_java.java_toolchain import MAVEN as MVNW
+from slipwai_language_java.java_toolchain import maven_dev_command, maven_native_commands
+
+from slipwai import registry as protocol
+from slipwai.assets import asset_tree
+from slipwai.images import IMAGE, MAVEN
+from slipwai.probes import HEALTH_PATH
+from slipwai.project.backing_services import backing_service_service_files
+from slipwai.project.flag_route import Resource, flag_resource
+from slipwai.project.flags import flag_reader
+from slipwai.selection import Selection
+
+from .spring_project import SPRING
+
+# This package's own assets; the family's are `JAVA_ASSETS`, and core's readers look here first and there after.
+ASSETS = Path(__file__).resolve().parents[1] / "assets"
 
 
 def service_files(event: bool, selection: Selection, target: str = "none") -> dict[str, str]:
@@ -32,8 +45,8 @@ def service_files(event: bool, selection: Selection, target: str = "none") -> di
     are read by both Java backends rather than copied into each. `java-spring/app/` is this backend's: the
     pom, the properties, `ServiceApplication` and the walking skeleton, all of which name the framework.
     """
-    files = asset_tree(LANGUAGE_ROOT / "java/build")
-    files.update(asset_tree(LANGUAGE_ROOT / "java-spring/app"))
+    files = asset_tree(JAVA_ASSETS / "languages/java/build")
+    files.update(asset_tree(ASSETS / "languages/java-spring/app"))
     files.update(backing_service_service_files(selection, "java-spring"))
     # The flag reader, from the family's tree for the reason every `../java/` source is: it names no
     # framework type. Only where there is somewhere to deploy — see `flags.py`.
@@ -208,13 +221,13 @@ FLAG_ROUTE = {
 }
 
 
-# Readiness as `java_quarkus.py` says: the path the framework serves, which is `HEALTH_PATH`. The body is
+# Readiness as the `java-quarkus` package says: the path the framework serves, which is `HEALTH_PATH`. The body is
 # Actuator's, and shorter than its sibling's for a reason worth stating: MicroProfile Health always reports
 # the per-check breakdown, while Actuator hides it unless `show-details` says otherwise — and this project
 # leaves that at `never`, because which dependencies a service has is not something an unauthenticated
 # caller needs. Same status vocabulary, one fewer disclosure.
 #
-# The rest of its toolchain is Maven's and the family's (`java_toolchain.py`). Its own, first: the Spring Boot
+# The rest of its toolchain is Maven's and the family's (`java`'s `java_toolchain`). Its own, first: the Spring Boot
 # plugin's run goal, which compiles first and then runs the application from the exploded classes — so
 # `./mvnw compile` in a second terminal is picked up. That is a weaker reload than its sibling's, and honestly
 # so: Quarkus recompiles on the next request by itself, whereas this is Spring Boot without
