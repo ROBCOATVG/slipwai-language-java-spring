@@ -468,6 +468,7 @@
           <targetClasses>
             <param>com.example.deliverystarter.health.*</param>
             <param>com.example.deliverystarter.application.ports.events.*</param>
+            <param>com.example.deliverystarter.application.ports.state.*</param>
             <param>com.example.deliverystarter.application.ports.readmodels.*</param>
             <param>com.example.deliverystarter.config.*</param>
             <param>com.example.deliverystarter.adapters.driving.http.auth.*</param>
