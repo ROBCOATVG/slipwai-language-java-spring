@@ -3,6 +3,32 @@
 No releases yet. Release notes are recorded here newest first, one entry per released version; the entry being
 written is `changelog.d/`.
 
+## 1.2.0 — MINOR
+
+**`java-spring` services on the durable event store get the family's seed door.** The event rung's `postgres` row
+takes `SEED_DOOR` from `java` and the pom's exec plugin gains a `seed` execution naming `SeedMain`, so `make
+seed-<service> FILE=<json>` appends a slice's given events through the event-store port, at the stream's current
+version, as the system actor `systems/seed-door` under one correlation id per run, with an identity hashed from
+stream, type and canonical data so a re-run appends nothing. With no `DATABASE_URL` it says so and exits 2. Never
+an HTTP route: the door is a process with the store's credentials. `language.json` now requires `java` >=1.2,
+which carries the door.
+
+**Catch-up:** `slipwai language upgrade java-spring` beside `slipwai language upgrade java`, then `slipwai
+migrate`.
+
+**A Spring service's datasource honours `DATABASE_URL`.** `DatabaseUrlEnvironmentPostProcessor` was registered in
+`META-INF/spring/org.springframework.boot.env.EnvironmentPostProcessor.imports`, a file Spring Boot 4 never reads,
+so the datasource always fell back to `localhost:5433` whatever `DATABASE_URL` said. It now implements Boot 4's
+`org.springframework.boot.EnvironmentPostProcessor` and is registered under that key in
+`META-INF/spring.factories`, the file Boot 4 loads post-processors from. Reaching the real database surfaced a
+second fault: a SERIALIZABLE conditional append refused at commit arrived as Spring's `CannotAcquireLockException`
+instead of the port's exception, so `appendIf` threw where it should have answered a condition conflict;
+`SpringTransactions` now hands the driver's exception back in the port's shape.
+
+**Catch-up:** `slipwai language upgrade java-spring`, then `slipwai migrate`; a service generated earlier gains
+`spring.factories` and should delete `src/main/resources/META-INF/spring/`. Until then set
+`SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD` directly.
+
 ## 1.1.0 — MINOR
 
 **`java-spring` answers the state-stored rung: `--write-model state` generates a service on a versioned
