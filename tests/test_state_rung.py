@@ -47,3 +47,31 @@ class StateRungTest(FactoryTestCase):
             main = self.main_package(directory, "events", "postgres")
             self.assertTrue((main / "application/ports/events/EventStore.java").is_file())
             self.assertFalse((main / "application/ports/state").exists())
+
+    def test_the_durable_event_store_brings_the_seed_door_and_nothing_else_does(self) -> None:
+        """A slice's `try-it.json` may give the events its unbuilt upstream would have written; they go in through
+        the event store, by a process with the store's credentials, never a route."""
+        with tempfile.TemporaryDirectory() as directory:
+            main = self.main_package(directory, "events", "postgres")
+            repo = main.parents[7]
+            self.assertTrue((main / "seed/SeedMain.java").is_file())
+            self.assertIn("exec:java@seed -Dexec.args=$(abspath $(FILE))", (repo / "Makefile").read_text())
+            self.assertIn("seed.SeedMain</mainClass>", (repo / "apps/service/pom.xml").read_text())
+        for rung, persistence in (("events", "memory"), ("state", "postgres")):
+            with self.subTest(rung=rung, persistence=persistence), tempfile.TemporaryDirectory() as directory:
+                main = self.main_package(directory, rung, persistence)
+                self.assertFalse((main / "seed").exists())
+                self.assertNotIn("seed-service:", (main.parents[7] / "Makefile").read_text())
+
+    def test_the_database_url_post_processor_is_registered_where_spring_boot_4_reads_it(self) -> None:
+        """Spring Boot 4 loads an `EnvironmentPostProcessor` from `spring.factories` under the interface's new name;
+        a `META-INF/spring/...imports` file is read by nothing, and `DATABASE_URL` would be silently ignored."""
+        with tempfile.TemporaryDirectory() as directory:
+            main = self.main_package(directory, "events", "postgres")
+            resources = main.parents[3] / "resources/META-INF"
+            factories = (resources / "spring.factories").read_text()
+            self.assertIn(f"org.springframework.boot.EnvironmentPostProcessor=com.example.{main.name}.config."
+                          "DatabaseUrlEnvironmentPostProcessor", factories)
+            self.assertFalse((resources / "spring").exists())
+            source = (main / "config/DatabaseUrlEnvironmentPostProcessor.java").read_text()
+            self.assertIn("import org.springframework.boot.EnvironmentPostProcessor;", source)

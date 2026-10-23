@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from slipwai_language_java.java import ASSETS as JAVA_ASSETS
-from slipwai_language_java.java import JAVA_PORTS
+from slipwai_language_java.java import JAVA_PORTS, SEED_DOOR
 from slipwai_language_java.java_state import state_write_side
 from slipwai_language_java.java_project import IDENTITY_OUTSTANDING
 from slipwai_language_java.java_toolchain import MAVEN as MVNW
@@ -98,9 +98,8 @@ WRITE_SIDE: dict[str, dict[str, Any]] = {
         "src/main/java/com/example/deliverystarter/config/"
         "DatabaseUrlEnvironmentPostProcessor.java": "database_url_environment_post_processor.java",
         # Spring Boot's own registration file, which is how a post-processor is found before any bean
-        # exists. The filename is the interface's own, so it cannot be anything else.
-        "src/main/resources/META-INF/spring/"
-        "org.springframework.boot.env.EnvironmentPostProcessor.imports": "environment_post_processor_registration",
+        # exists: `spring.factories`, keyed by the interface — Spring Boot 4 reads no `.imports` file for one.
+        "src/main/resources/META-INF/spring.factories": "environment_post_processor_registration",
         "src/main/java/com/example/deliverystarter/migrations/MigrateMain.java": "../java/migrate_main.java",
         # Flyway's own naming convention, `V<version>__<description>.sql`, from the same shared `.sql`
         # files every other SQL backend here reads. See the note in the sibling's block.
@@ -145,6 +144,10 @@ WRITE_SIDE: dict[str, dict[str, Any]] = {
         "CustomerIdentityTest.java": "../java/tests/users_oidc_keycloak_test.java",
     },
 }
+
+# The seed door beside the event store it appends through (`slipwai_language_java.java.SEED_DOOR`). The event rung
+# only: a state-stored service keeps no log for a given event to land in, and the keel writes it no target.
+WRITE_SIDE["postgres"].update(SEED_DOOR)
 
 # The state-stored rung: the family's repository port and adapters, this framework's datasource wiring taken from
 # the `postgres` row above, its own `*IT` for the Postgres repository, and the transport and identity rows as they

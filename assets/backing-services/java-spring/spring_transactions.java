@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.function.Supplier;
 import javax.sql.DataSource;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -47,6 +48,9 @@ public class SpringTransactions implements Transactions {
         this.transactionManager = transactionManager;
     }
 
+    // PreserveStackTrace: the driver's exception, which is the cause that matters, is the one kept; Spring's
+    // wrapper around it says nothing the SQLSTATE does not.
+    @SuppressWarnings("PMD.PreserveStackTrace")
     @Override
     public <T> T inTransaction(Isolation isolation, Supplier<T> work) {
         TransactionTemplate template = new TransactionTemplate(transactionManager);
@@ -61,8 +65,20 @@ public class SpringTransactions implements Transactions {
         // work never does: the {@code Runnable} overload on `EventStore` is what a unit of work with
         // nothing to hand back uses, precisely so no call site writes `return null`. So a null here is a
         // broken contract rather than an empty transaction, and it says so.
-        return Objects.requireNonNull(
-                template.execute(status -> work.get()), "a unit of work returned null");
+        try {
+            return Objects.requireNonNull(
+                    template.execute(status -> work.get()), "a unit of work returned null");
+        } catch (DataAccessException failure) {
+            // A failure at COMMIT surfaces as Spring's translation rather than as the port's: a SERIALIZABLE
+            // transaction Postgres could not order is raised by the commit, after the work returned, and
+            // Spring reports it as a `CannotAcquireLockException`. The store reads the SQLSTATE off the port's
+            // exception to call that a condition conflict, so the driver's own exception is handed back in
+            // the port's shape here — the one place Spring's vocabulary is spoken.
+            if (failure.getMostSpecificCause() instanceof SQLException sql) {
+                throw Transactions.failed("commit", sql);
+            }
+            throw failure;
+        }
     }
 
     @Override

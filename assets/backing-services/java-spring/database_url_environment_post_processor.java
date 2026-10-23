@@ -2,8 +2,8 @@ package com.example.deliverystarter.config;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.env.EnvironmentPostProcessor;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.MutablePropertySources;
@@ -20,8 +20,14 @@ import org.springframework.core.env.StandardEnvironment;
  * <p>Where it is inserted is the load-bearing detail. Immediately after the OS environment, so
  * {@code SPRING_DATASOURCE_URL} set directly still wins — which is what an operator with an unusual URL
  * needs — and above {@code application.properties}, whose values are only the local fallback. Registered
- * through {@code META-INF/spring/org.springframework.boot.env.EnvironmentPostProcessor.imports}, so it runs
- * while the environment is being assembled and before any bean exists.
+ * in {@code META-INF/spring.factories} under {@code org.springframework.boot.EnvironmentPostProcessor}, so it
+ * runs while the environment is being assembled and before any bean exists.
+ *
+ * <p>That key and this interface are Spring Boot 4's: the interface moved out of {@code boot.env}, and
+ * post-processors are still read from {@code spring.factories} rather than from a {@code .imports} file. A
+ * {@code META-INF/spring/…EnvironmentPostProcessor.imports} file is read by nothing, so a post-processor
+ * registered there never runs, and the datasource silently keeps its {@code localhost:5433} fallback whatever
+ * {@code DATABASE_URL} says.
  *
  * <p>An unparseable {@code DATABASE_URL} contributes nothing here rather than throwing. A post-processor
  * that throws while the environment is being assembled fails every profile at once, including the test
